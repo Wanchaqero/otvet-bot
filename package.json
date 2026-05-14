@@ -1,0 +1,36 @@
+{
+  "name": "beruperu-telegram-bot",
+  "version": "2.0.0",
+  "description": "AI-агент для туристического агентства BerúPeru с базой данных SQLite",
+  "main": "smart-bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "nodemon bot.js",
+    "parse": "node parse-and-save.js",
+    "parse:watch": "nodemon --exec 'node parse-and-save.js'",
+    "init": "node -e \"const TourDatabase = require('./database'); new TourDatabase('tours.db').initialize().then(() => new TourDatabase('tours.db').createTables()).then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })\""
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "tours",
+    "peru",
+    "database",
+    "sqlite"
+  ],
+  "author": "BerúPeru",
+  "license": "MIT",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.64.0",
+    "sqlite3": "^5.1.6",
+    "cheerio": "^1.0.0-rc.12",
+    "node-fetch": "^2.6.11",
+    "@anthropic-ai/sdk": "^0.28.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
