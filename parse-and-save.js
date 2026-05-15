@@ -20,13 +20,15 @@ class ToursParserAndSaver {
   /**
    * Главный метод парсинга
    */
-  async parse() {
+  async parse(skipDbInit = false) {
     try {
       console.log('🔍 Начинаем парсинг сайта:', this.baseURL);
 
-      // Инициализируем БД
-      await this.db.initialize();
-      await this.db.createTables();
+      // Инициализируем БД только если не передали готовое соединение
+      if (!skipDbInit) {
+        await this.db.initialize();
+        await this.db.createTables();
+      }
 
       // Получаем список страниц туров
       const tourPages = await this.getTourPages();
@@ -49,19 +51,20 @@ class ToursParserAndSaver {
 
       console.log(`\n✅ Готово! Добавлено туров: ${this.tours.length}`);
 
-      // Показываем статистику
-      const stats = await this.db.getStats();
-      console.log('\n📊 Статистика:');
-      console.log(`  • Всего туров: ${stats.totalTours}`);
-      console.log(`  • Средняя цена: $${stats.averagePrice.toFixed(2)}`);
-      console.log(`  • По локациям:`, stats.byLocation);
+      if (!skipDbInit) {
+        const stats = await this.db.getStats();
+        console.log('\n📊 Статистика:');
+        console.log(`  • Всего туров: ${stats.totalTours}`);
+        console.log(`  • Средняя цена: $${stats.averagePrice.toFixed(2)}`);
+        console.log(`  • По локациям:`, stats.byLocation);
+        await this.db.close();
+      }
 
-      await this.db.close();
       return this.tours;
 
     } catch (error) {
       console.error('❌ Ошибка при парсинге:', error.message);
-      await this.db.close();
+      if (!skipDbInit) await this.db.close();
     }
   }
 

@@ -8,6 +8,7 @@
 
 const TelegramBot = require('node-telegram-bot-api');
 const TourDatabase = require('./database');
+const ToursParserAndSaver = require('./parse-and-save');
 
 // Получаем токен из переменных окружения
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -56,13 +57,25 @@ async function initBot() {
     await db.createTables();
     console.log('✅ БД инициализирована');
 
-    // Проверяем что есть туры
+    // Проверяем что есть туры, если нет — парсим сайт
     const stats = await db.getStats();
     console.log(`📊 В БД загружено туров: ${stats.totalTours}`);
 
     if (stats.totalTours === 0) {
-      console.log('⚠️ В БД нет туров!');
-      console.log('Запустите: node parse-and-save.js');
+      console.log('⚠️ БД пуста. Запускаю парсинг сайта...');
+      try {
+        const parser = new ToursParserAndSaver(
+          process.env.SITE_URL || 'https://beruperu.omarat.info/',
+          'tours.db'
+        );
+        parser.db = db;
+        await parser.parse(true);
+        const newStats = await db.getStats();
+        console.log(`✅ Парсинг завершён. Загружено туров: ${newStats.totalTours}`);
+      } catch (parseError) {
+        console.error('❌ Ошибка парсинга:', parseError.message);
+        console.log('Бот запустится, но база данных пуста.');
+      }
     }
 
   } catch (error) {
