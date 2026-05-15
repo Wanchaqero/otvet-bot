@@ -160,6 +160,35 @@ bot.onText(/\/help/, async (msg) => {
 });
 
 /**
+ * Команда /debug — показывает первые 5 туров из БД сырыми данными
+ */
+bot.onText(/\/debug/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (!isUserAllowed(userId)) return;
+
+  try {
+    const tours = await db.all('SELECT id, title, price, location, url FROM tours LIMIT 5');
+    if (tours.length === 0) {
+      await bot.sendMessage(chatId, '⚠️ БД пуста');
+      return;
+    }
+    let text = `🔍 Первые ${tours.length} туров из БД:\n\n`;
+    for (const t of tours) {
+      text += `ID: ${t.id}\n`;
+      text += `Название: ${t.title}\n`;
+      text += `Цена: $${t.price}\n`;
+      text += `Локация: ${t.location}\n`;
+      text += `URL: ${t.url}\n\n`;
+    }
+    await bot.sendMessage(chatId, text);
+  } catch (e) {
+    await bot.sendMessage(chatId, `❌ Ошибка: ${e.message}`);
+  }
+});
+
+/**
  * Команда /stats
  */
 bot.onText(/\/stats/, async (msg) => {

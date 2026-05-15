@@ -255,11 +255,29 @@ class ToursParserAndSaver {
 
   extractPrice($, html) {
     const text = $('body').text();
-    // Ищет: $200, USD 200, 200$, 200 USD, ₹200 и т.д.
-    const match = text.match(/[\$USD₹]*\s*(\d+(?:\,\d{3})*(?:\.\d{2})?)\s*[\$USD]?/i);
 
-    if (match) {
-      return parseFloat(match[1].replace(/,/g, ''));
+    const patterns = [
+      // $1,200 или $1200 или $ 1 200
+      /\$\s*([\d\s,]+(?:\.\d{1,2})?)/,
+      // 1200 USD / 1200 usd
+      /([\d\s,]+(?:\.\d{1,2})?)\s*USD/i,
+      // USD 1200
+      /USD\s*([\d\s,]+(?:\.\d{1,2})?)/i,
+      // S/ 1200 (Peruvian Sol)
+      /S\/\s*([\d\s,]+(?:\.\d{1,2})?)/,
+      // "от 1200" / "от $1200" / "from 1200"
+      /(?:от|from|price|цена)[:\s]+\$?\s*([\d\s,]{2,8})/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const num = parseFloat(match[1].replace(/[\s,]/g, ''));
+        // Разумный диапазон цен: $1 — $100000
+        if (num >= 1 && num <= 100000) {
+          return num;
+        }
+      }
     }
 
     return 0;
