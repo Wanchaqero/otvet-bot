@@ -25,7 +25,15 @@ const ALLOWED_USERS = process.env.ALLOWED_USERS
 
 console.log('✅ Разрешенные пользователи:', ALLOWED_USERS);
 
-const bot = new TelegramBot(TOKEN, { polling: true });
+const botOptions = { polling: true };
+
+if (process.env.HTTPS_PROXY || process.env.HTTP_PROXY) {
+  const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  botOptions.request = { proxy };
+  console.log(`🔗 Используется прокси: ${proxy}`);
+}
+
+const bot = new TelegramBot(TOKEN, botOptions);
 const db = new TourDatabase('tours.db');
 
 // Состояние пользователей (для сохранения истории)
