@@ -241,26 +241,47 @@ bot.on('message', async (msg) => {
   }
 
   try {
-    // Показываем "печатает..."
     await bot.sendChatAction(chatId, 'typing');
 
-    // Ищем туры
-    const tours = await db.search(text);
+    // Маппинг кнопок клавиатуры → поисковые запросы
+    const buttonMap = {
+      '🏙️ туры по лиме':   'Лима',
+      '🎨 туры с музеями': 'музей',
+      '⏱️ короткие туры':  'часов',
+      '📋 все туры':        '',
+      'все туры':           '',
+      'все':                '',
+    };
 
-    // Сохраняем последний поиск
+    const textLower = text.toLowerCase().trim();
+    let searchQuery = text;
+    let tours;
+
+    if (textLower in buttonMap) {
+      searchQuery = buttonMap[textLower];
+    }
+
+    // "💰 Дешевые туры" — сортируем по цене
+    if (textLower === '💰 дешевые туры' || textLower === 'дешевые') {
+      tours = (await db.getAllTours()).filter(t => t.price > 0).sort((a, b) => a.price - b.price);
+    }
+    // "⭐ Популярные" — просто все туры (рейтинга нет)
+    else if (textLower === '⭐ популярные' || textLower === 'популярные') {
+      tours = await db.getAllTours();
+    }
+    else {
+      tours = await db.search(searchQuery);
+      // Если ничего не нашли — пробуем getAllTours как запасной вариант
+      if (tours.length === 0 && searchQuery !== '') {
+        tours = await db.getAllTours();
+      }
+    }
+
     userState.set(chatId, { lastSearch: tours });
-
-    // Логируем поиск
     await db.logSearch(userId, text, tours.length);
 
     if (tours.length === 0) {
-      await bot.sendMessage(chatId,
-        '❌ Туры не найдены.\n\n' +
-        'Попробуйте:\n' +
-        '• "туры по Лиме"\n' +
-        '• "музеи"\n' +
-        '• "все туры"'
-      );
+      await bot.sendMessage(chatId, '❌ В базе данных пока нет туров. Попробуйте позже.');
       return;
     }
 
@@ -306,7 +327,7 @@ function formatTourMessage(tour) {
     msg += `⏱️ Длительность: ${tour.duration}\n`;
   }
 
-  msg += `💵 Цена: <b>$${tour.price}</b>`;
+  msg += `💵 Цена: <b>${tour.price > 0 ? '$' + tour.price : 'по запросу'}</b>`;
   if (tour.group_size) {
     msg += ` (${tour.group_size})\n`;
   } else {

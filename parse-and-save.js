@@ -110,20 +110,23 @@ class ToursParserAndSaver {
       for (const selector of selectors) {
         $(selector).each((i, elem) => {
           const href = $(elem).attr('href');
-          const text = $(elem).text().trim();
 
-          // Фильтруем релевантные ссылки
+          // Берём текстовый контент; если пусто — берём alt у img внутри ссылки
+          let text = $(elem).text().trim();
+          if (!text) {
+            text = $(elem).find('img').attr('alt') || '';
+          }
+
+          // Пропускаем если текст содержит HTML-теги (сломанный парсинг)
+          if (text.includes('<') || text.includes('>')) return;
+
           if (href && this.isRelevantTourLink(text, href)) {
             const fullUrl = href.startsWith('http')
               ? href
               : new URL(href, this.baseURL).href;
 
-            // Избегаем дублей
             if (!pages.some(p => p.url === fullUrl)) {
-              pages.push({
-                url: fullUrl,
-                title: text || 'Без названия'
-              });
+              pages.push({ url: fullUrl, title: text || 'Без названия' });
             }
           }
         });
@@ -181,13 +184,12 @@ class ToursParserAndSaver {
         category: this.extractCategory(html, $)
       };
 
-      // Валидируем обязательные поля
-      if (tour.title && tour.price && tour.price > 0) {
+      if (tour.title && !tour.title.includes('<')) {
         this.tours.push(tour);
-        console.log(`  ✅ ${tour.title} - $${tour.price}`);
+        const priceStr = tour.price > 0 ? `$${tour.price}` : 'цена по запросу';
+        console.log(`  ✅ ${tour.title} - ${priceStr}`);
       } else {
-        console.log(`  ⚠️ Неполные данные для: ${page.title}`);
-        if (!tour.price) console.log(`     (цена не найдена)`);
+        console.log(`  ⚠️ Пропущен: ${page.title.substring(0, 60)}`);
       }
 
     } catch (error) {
@@ -254,29 +256,40 @@ class ToursParserAndSaver {
   }
 
   extractPrice($, html) {
-    const text = $('body').text();
+    // Цены на сайте обычно выделены <strong>: "1150 долларов" или "200$"
+    const candidates = [];
 
-    const patterns = [
-      // $1,200 или $1200 или $ 1 200
-      /\$\s*([\d\s,]+(?:\.\d{1,2})?)/,
-      // 1200 USD / 1200 usd
-      /([\d\s,]+(?:\.\d{1,2})?)\s*USD/i,
-      // USD 1200
-      /USD\s*([\d\s,]+(?:\.\d{1,2})?)/i,
-      // S/ 1200 (Peruvian Sol)
-      /S\/\s*([\d\s,]+(?:\.\d{1,2})?)/,
-      // "от 1200" / "от $1200" / "from 1200"
-      /(?:от|from|price|цена)[:\s]+\$?\s*([\d\s,]{2,8})/i,
+    const pricePatterns = [
+      /(\d[\d\s]*)\s*долларов/i,          // "1150 долларов"
+      /(\d[\d\s,]*)\s*\$/,                // "200$"
+      /\$\s*(\d[\d\s,]*)/,                // "$200"
+      /(\d[\d\s,]*)\s*USD/i,              // "200 USD"
+      /USD\s*(\d[\d\s,]*)/i,              // "USD 200"
+      /стоимость[^.]{0,30}?(\d{2,})/i,   // "стоимость ... 200"
+      /от\s+(\d{2,})\s*(?:долларов|\$)/i, // "от 200 долларов"
     ];
 
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match) {
-        const num = parseFloat(match[1].replace(/[\s,]/g, ''));
-        // Разумный диапазон цен: $1 — $100000
-        if (num >= 1 && num <= 100000) {
-          return num;
+    // Сначала ищем в выделенных тегах (strong, b)
+    $('strong, b').each((i, el) => {
+      const t = $(el).text().trim();
+      for (const p of pricePatterns) {
+        const m = t.match(p);
+        if (m) {
+          const num = parseFloat(m[1].replace(/[\s,]/g, ''));
+          if (num >= 10 && num <= 200000) candidates.push(num);
         }
+      }
+    });
+
+    if (candidates.length > 0) return Math.min(...candidates);
+
+    // Fallback: весь текст страницы, но только числа от 10 и выше
+    const bodyText = $('body').text();
+    for (const p of pricePatterns) {
+      const m = bodyText.match(p);
+      if (m) {
+        const num = parseFloat(m[1].replace(/[\s,]/g, ''));
+        if (num >= 10 && num <= 200000) return num;
       }
     }
 
