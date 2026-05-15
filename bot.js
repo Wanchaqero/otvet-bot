@@ -289,10 +289,38 @@ function formatTourMessage(tour) {
 }
 
 /**
- * Обработка ошибок polling
+ * Обработка ошибок polling с экспоненциальным backoff
  */
+let pollingErrorCount = 0;
+let pollingRestartTimer = null;
+
 bot.on('polling_error', (error) => {
-  console.error('❌ Polling error:', error);
+  const code = error.code || '';
+  // socket hang up — нормальное завершение long-poll, не считаем ошибкой
+  if (error.message && error.message.includes('socket hang up')) {
+    pollingErrorCount = 0;
+    return;
+  }
+
+  pollingErrorCount++;
+  console.error(`❌ Polling error #${pollingErrorCount}: ${error.message}`);
+
+  if (pollingRestartTimer) return;
+
+  const delay = Math.min(1000 * 2 ** Math.min(pollingErrorCount, 6), 64000);
+  console.log(`🔄 Перезапуск polling через ${delay / 1000}с...`);
+
+  pollingRestartTimer = setTimeout(async () => {
+    pollingRestartTimer = null;
+    try {
+      await bot.stopPolling();
+      await bot.startPolling();
+      pollingErrorCount = 0;
+      console.log('✅ Polling восстановлен');
+    } catch (e) {
+      console.error('❌ Не удалось перезапустить polling:', e.message);
+    }
+  }, delay);
 });
 
 /**
