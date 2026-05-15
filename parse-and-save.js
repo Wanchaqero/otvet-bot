@@ -68,13 +68,24 @@ class ToursParserAndSaver {
     }
   }
 
+  get browserHeaders() {
+    return {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    };
+  }
+
   /**
    * Получает список всех страниц с турами со сайта
    */
   async getTourPages() {
     try {
       const response = await fetch(this.baseURL, {
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+        headers: this.browserHeaders
       });
 
       if (!response.ok) {
@@ -144,7 +155,7 @@ class ToursParserAndSaver {
   async parseTourPage(page) {
     try {
       const response = await fetch(page.url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+        headers: this.browserHeaders
       });
 
       if (!response.ok) {
